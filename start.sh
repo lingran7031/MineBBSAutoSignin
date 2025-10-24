@@ -1,6 +1,5 @@
 #!/bin/sh
 
-# 直接在运行时设置时区（这是Alpine Linux中最可靠的方法）
 export TZ=Asia/Shanghai
 
 # 复制时区文件
