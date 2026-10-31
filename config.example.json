@@ -1,0 +1,43 @@
+{
+  "baseUrl": "https://www.minebbs.com",
+  "shopPrefix": "/tool-shop",
+  "creditsClockPath": "/credits/clock",
+  "executeTime": "08:00:00",
+  "accountDelay": { "minMs": 30000, "maxMs": 60000 },
+  "currencyIds": [1, 5],
+  "limits": {
+    "maxPurchasesPerRun": 5,
+    "maxUsesPerRun": 5,
+    "maxQuantityPerItem": 1,
+    "maxUnitPrice": 100,
+    "maxSpendPerRun": 500,
+    "allowHighQuantity": false
+  },
+  "purchases": [
+    {
+      "enabled": false,
+      "itemId": null,
+      "title": "金粒顶贴卡",
+      "quantity": 1,
+      "maxPrice": 100
+    }
+  ],
+  "uses": [
+    {
+      "enabled": false,
+      "itemId": null,
+      "title": "金粒顶贴卡",
+      "purchaseId": null,
+      "quantity": 1,
+      "action": "configure",
+      "threadUrl": "https://www.minebbs.com/threads/把这里换成你的主题.1/"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "账户1",
+      "cookies": "在这里填入你的cookie",
+      "csrfToken": ""
+    }
+  ]
+}

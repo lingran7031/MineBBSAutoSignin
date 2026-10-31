@@ -1,0 +1,16 @@
+<div class="header">
+    <h1><%= title %></h1>
+    <div class="header-right">
+        <a href="/" class="btn btn-secondary">管理</a>
+        <a href="/shop" class="btn btn-secondary">道具</a>
+        <a href="/inventory" class="btn btn-secondary">库存</a>
+        <a href="/settings" class="btn btn-secondary">设置</a>
+        <a href="/logout" class="btn btn-danger">退出</a>
+    </div>
+</div>
+<% if (message) { %>
+    <div class="success-message"><%= message %></div>
+<% } %>
+<% if (error) { %>
+    <div class="error-message"><%= error %></div>
+<% } %>

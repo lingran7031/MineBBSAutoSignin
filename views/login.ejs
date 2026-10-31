@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineBBS Auto Signin - 登录</title>
+    <title>MineBBS 助手 - 登录</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
         <div class="login-box">
-            <h2>MineBBS Auto Signin - Login</h2>
+            <h2>MineBBS 助手</h2>
             <% if (error) { %>
                 <div class="error-message"><%= error %></div>
             <% } %>
@@ -26,7 +26,7 @@
                     <button type="submit" class="btn btn-primary">登录</button>
                 </div>
             </form>
-            <p class="hint">默认账号: admin, 默认密码: admin123 (请首次登录后修改)</p>
+            <p class="hint">首次启动时，终端会打印初始密码。也可以用环境变量 ADMIN_PASSWORD 指定。旧版留下的 config/admin_config.json 会继续生效。</p>
         </div>
     </div>
 </body>

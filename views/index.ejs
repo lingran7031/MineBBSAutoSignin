@@ -3,169 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineBBS自动签到 - 管理中心</title>
+    <title>MineBBS 助手 - 管理</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>MineBBS Auto Signin</h1>
-            <div class="header-right">
-                <a href="/settings" class="btn btn-secondary">设置</a>
-                <a href="/logout" class="btn btn-danger">退出登录</a>
-            </div>
-        </div>
-        
-        <% if (message) { %>
-            <div class="success-message"><%= message %></div>
-        <% } %>
-        
-        <% if (error) { %>
-            <div class="error-message"><%= error %></div>
-        <% } %>
-        
-        <!-- 定时时间设置 -->
+        <%- include('partials/header', { title: 'MineBBS 助手', message: message, error: error }) %>
+
         <div class="card">
-            <h2>定时设置</h2>
+            <h2>每日流程</h2>
             <form action="/set-time" method="post">
                 <div class="form-group">
-                    <label for="executeTime">每日签到时间 (HH:MM:SS)</label>
+                    <label for="executeTime">每天执行时间 (HH:MM:SS)</label>
                     <input type="text" id="executeTime" name="executeTime" value="<%= executeTime %>" required pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]">
                 </div>
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">保存设置</button>
-                </div>
+                <button type="submit" class="btn btn-primary">保存时间</button>
             </form>
-            
+            <p class="hint">到点后会签到，并执行下面已启用的购买和使用规则。没有启用的规则时，效果与旧版只签到相同。</p>
             <div class="action-buttons">
-                <form action="/manual-signin" method="post" style="display: inline;">
-                    <button type="submit" class="btn btn-success">立即执行签到</button>
+                <form action="/manual-signin" method="post">
+                    <button type="submit" class="btn btn-success">只签到</button>
+                </form>
+                <form action="/manual-run" method="post" onsubmit="return confirm('会按已启用的规则购买和使用道具。确定执行？');">
+                    <button type="submit" class="btn btn-primary">执行每日流程</button>
                 </form>
             </div>
         </div>
-        
-        <!-- 账号管理 -->
+
         <div class="card">
-            <h2>账号管理</h2>
-            
-            <!-- 添加账号表单 -->
-            <div class="add-account-form">
-                <h3>添加新账号</h3>
-                <form action="/add-account" method="post">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="name">账号名称</label>
-                            <input type="text" id="name" name="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="cookies">Cookies</label>
-                            <input type="text" id="cookies" name="cookies" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="csrfToken">CSRF Token</label>
-                            <input type="text" id="csrfToken" name="csrfToken" required>
-                        </div>
+            <h2>限额</h2>
+            <form action="/set-limits" method="post">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxPurchasesPerRun">每次最多购买几件</label>
+                        <input type="number" id="maxPurchasesPerRun" name="maxPurchasesPerRun" min="1" value="<%= limits.maxPurchasesPerRun != null ? limits.maxPurchasesPerRun : '' %>">
                     </div>
                     <div class="form-group">
-                        <button type="submit" class="btn btn-primary">添加账号</button>
+                        <label for="maxUsesPerRun">每次最多使用几件</label>
+                        <input type="number" id="maxUsesPerRun" name="maxUsesPerRun" min="1" value="<%= limits.maxUsesPerRun != null ? limits.maxUsesPerRun : '' %>">
                     </div>
-                </form>
-            </div>
-            
-            <!-- 账号列表 -->
-            <div class="accounts-list">
-                <h3>已添加账号</h3>
-                <% if (accounts.length === 0) { %>
-                    <p class="no-accounts">暂无账号，请添加</p>
-                <% } else { %>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>账号名称</th>
-                                    <th>Cookies</th>
-                                    <th>CSRF Token</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% accounts.forEach(function(account, index) { %>
-                                    <tr>
-                                        <td><%= account.name %></td>
-                                        <td class="truncate"><%= account.cookies %></td>
-                                        <td class="truncate"><%= account.csrfToken %></td>
-                                        <td>
-                                            <button class="btn btn-secondary edit-btn" data-index="<%= index %>">编辑</button>
-                                            <form action="/delete-account" method="post" style="display: inline;">
-                                                <input type="hidden" name="id" value="<%= index %>">
-                                                <button type="submit" class="btn btn-danger" onclick="return confirm('确定要删除这个账号吗？');">删除</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
+                    <div class="form-group">
+                        <label for="maxQuantityPerItem">同一道具数量上限</label>
+                        <input type="number" id="maxQuantityPerItem" name="maxQuantityPerItem" min="1" value="<%= limits.maxQuantityPerItem != null ? limits.maxQuantityPerItem : '' %>">
                     </div>
-                <% } %>
-            </div>
+                    <div class="form-group">
+                        <label for="maxUnitPrice">单价上限</label>
+                        <input type="number" id="maxUnitPrice" name="maxUnitPrice" min="0" step="0.01" value="<%= limits.maxUnitPrice != null ? limits.maxUnitPrice : '' %>">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxSpendPerRun">本次花费上限</label>
+                        <input type="number" id="maxSpendPerRun" name="maxSpendPerRun" min="0" step="0.01" value="<%= limits.maxSpendPerRun != null ? limits.maxSpendPerRun : '' %>">
+                    </div>
+                </div>
+                <p class="hint">留空表示不限制。解析不到价格时，只要设了单价或花费上限，就会拒绝购买。</p>
+                <button type="submit" class="btn btn-primary">保存限额</button>
+            </form>
         </div>
-        
-        <!-- 编辑账号模态框 -->
+
+        <div class="card">
+            <h2>账号</h2>
+            <form action="/add-account" method="post">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">名称</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cookies">Cookie</label>
+                        <input type="text" id="cookies" name="cookies" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="csrfToken">CSRF（可留空，运行时从页面读取）</label>
+                        <input type="text" id="csrfToken" name="csrfToken">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">添加账号</button>
+            </form>
+            <% if (accounts.length === 0) { %>
+                <p class="no-accounts">还没有账号</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>名称</th><th>Cookie</th><th>CSRF</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            <% accounts.forEach(function (account, index) { %>
+                                <tr>
+                                    <td><%= account.name %></td>
+                                    <td class="truncate"><%= account.cookies %></td>
+                                    <td class="truncate"><%= account.csrfToken || '' %></td>
+                                    <td>
+                                        <button type="button" class="btn btn-secondary edit-btn" data-index="<%= index %>">编辑</button>
+                                        <form action="/delete-account" method="post" style="display:inline">
+                                            <input type="hidden" name="id" value="<%= index %>">
+                                            <button type="submit" class="btn btn-danger" onclick="return confirm('删除这个账号？');">删除</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="card">
+            <h2>购买规则</h2>
+            <form action="/add-purchase" method="post">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="purchase-title">标题包含</label>
+                        <input type="text" id="purchase-title" name="title" placeholder="金粒顶贴卡">
+                    </div>
+                    <div class="form-group">
+                        <label for="purchase-item">道具 ID</label>
+                        <input type="number" id="purchase-item" name="itemId" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="purchase-qty">数量</label>
+                        <input type="number" id="purchase-qty" name="quantity" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="purchase-price">这条规则的单价上限</label>
+                        <input type="number" id="purchase-price" name="maxPrice" min="0" step="0.01">
+                    </div>
+                </div>
+                <label class="check"><input type="checkbox" name="enabled" value="1"> 启用，加入每日流程</label>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">添加购买规则</button>
+                </div>
+            </form>
+            <% if (purchases.length === 0) { %>
+                <p class="hint">还没有购买规则。先到「道具」页看 ID。</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>启用</th><th>标题</th><th>ID</th><th>数量</th><th>单价上限</th><th></th></tr></thead>
+                        <tbody>
+                            <% purchases.forEach(function (rule, index) { %>
+                                <tr>
+                                    <td><%= rule.enabled ? '是' : '否' %></td>
+                                    <td><%= rule.title || '' %></td>
+                                    <td><%= rule.itemId || '' %></td>
+                                    <td><%= rule.quantity || 1 %></td>
+                                    <td><%= rule.maxPrice || '' %></td>
+                                    <td>
+                                        <form action="/delete-purchase" method="post">
+                                            <input type="hidden" name="id" value="<%= index %>">
+                                            <button type="submit" class="btn btn-danger">删除</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="card">
+            <h2>使用规则</h2>
+            <form action="/add-use" method="post">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="use-title">标题包含</label>
+                        <input type="text" id="use-title" name="title">
+                    </div>
+                    <div class="form-group">
+                        <label for="use-item">道具 ID</label>
+                        <input type="number" id="use-item" name="itemId" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="use-purchase">库存 ID</label>
+                        <input type="number" id="use-purchase" name="purchaseId" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="use-qty">数量</label>
+                        <input type="number" id="use-qty" name="quantity" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="use-action">动作</label>
+                        <select id="use-action" name="action">
+                            <option value="configure">使用 / 配置</option>
+                            <option value="activate">启用</option>
+                            <option value="deactivate">停用</option>
+                            <option value="discard">丢弃</option>
+                            <option value="sellback">回收</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="use-thread">主题链接（顶贴、高亮、置顶）</label>
+                        <input type="text" id="use-thread" name="threadUrl" placeholder="https://www.minebbs.com/threads/example.1/">
+                    </div>
+                </div>
+                <label class="check"><input type="checkbox" name="enabled" value="1"> 启用，加入每日流程</label>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">添加使用规则</button>
+                </div>
+            </form>
+            <% if (uses.length === 0) { %>
+                <p class="hint">还没有使用规则。库存 ID 从「库存」页看。</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>启用</th><th>标题</th><th>道具</th><th>库存</th><th>动作</th><th>主题</th><th></th></tr></thead>
+                        <tbody>
+                            <% uses.forEach(function (rule, index) { %>
+                                <tr>
+                                    <td><%= rule.enabled ? '是' : '否' %></td>
+                                    <td><%= rule.title || '' %></td>
+                                    <td><%= rule.itemId || '' %></td>
+                                    <td><%= rule.purchaseId || '' %></td>
+                                    <td><%= rule.action || 'configure' %></td>
+                                    <td class="truncate"><%= rule.threadUrl || '' %></td>
+                                    <td>
+                                        <form action="/delete-use" method="post">
+                                            <input type="hidden" name="id" value="<%= index %>">
+                                            <button type="submit" class="btn btn-danger">删除</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+
         <div id="edit-modal" class="modal">
             <div class="modal-content">
                 <span class="close-btn">&times;</span>
                 <h3>编辑账号</h3>
-                <form id="edit-form" action="/edit-account" method="post">
+                <form action="/edit-account" method="post">
                     <input type="hidden" id="edit-id" name="id">
                     <div class="form-group">
-                        <label for="edit-name">账号名称</label>
+                        <label for="edit-name">名称</label>
                         <input type="text" id="edit-name" name="name" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit-cookies">Cookies</label>
+                        <label for="edit-cookies">Cookie</label>
                         <input type="text" id="edit-cookies" name="cookies" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit-csrfToken">CSRF Token</label>
-                        <input type="text" id="edit-csrfToken" name="csrfToken" required>
+                        <label for="edit-csrfToken">CSRF</label>
+                        <input type="text" id="edit-csrfToken" name="csrfToken">
                     </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary">保存修改</button>
-                    </div>
+                    <button type="submit" class="btn btn-primary">保存</button>
                 </form>
             </div>
         </div>
     </div>
-    
     <script>
-        // 编辑账号模态框
         const modal = document.getElementById('edit-modal');
-        const closeBtn = document.getElementsByClassName('close-btn')[0];
-        const editBtns = document.getElementsByClassName('edit-btn');
         const accounts = <%- JSON.stringify(accounts) %>;
-        
-        // 打开模态框
-        for (let i = 0; i < editBtns.length; i++) {
-            editBtns[i].addEventListener('click', function() {
-                const index = this.getAttribute('data-index');
-                const account = accounts[index];
-                
-                document.getElementById('edit-id').value = index;
-                document.getElementById('edit-name').value = account.name;
-                document.getElementById('edit-cookies').value = account.cookies;
-                document.getElementById('edit-csrfToken').value = account.csrfToken;
-                
+        document.querySelectorAll('.edit-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const account = accounts[Number(button.getAttribute('data-index'))];
+                document.getElementById('edit-id').value = button.getAttribute('data-index');
+                document.getElementById('edit-name').value = account.name || '';
+                document.getElementById('edit-cookies').value = account.cookies || '';
+                document.getElementById('edit-csrfToken').value = account.csrfToken || '';
                 modal.style.display = 'block';
             });
-        }
-        
-        // 关闭模态框
-        closeBtn.addEventListener('click', function() {
+        });
+        document.querySelector('.close-btn').addEventListener('click', function () {
             modal.style.display = 'none';
         });
-        
-        // 点击模态框外部关闭
-        window.addEventListener('click', function(event) {
+        window.addEventListener('click', function (event) {
             if (event.target === modal) {
                 modal.style.display = 'none';
             }

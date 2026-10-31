@@ -1,24 +1,26 @@
 {
   "name": "minebbs-auto-signin",
-  "version": "1.0.0",
-  "description": "MineBBS我的世界中文论坛自动签到脚本",
-  "main": "signin.js",
+  "version": "2.0.0",
+  "description": "MineBBS 签到、购买道具、使用道具",
+  "main": "cli.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node app.js",
-    "signin": "node signin.js",
-    "web": "node server.js"
+    "signin": "node cli.js signin",
+    "web": "node server.js",
+    "cli": "node cli.js",
+    "test": "node --test"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.4.0",
-    "axios-cookiejar-support": "^4.0.0",
     "bcrypt": "^6.0.0",
-    "body-parser": "^1.20.2",
     "ejs": "^3.1.10",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
-    "node-schedule": "^2.1.1",
-    "tough-cookie": "^4.1.2"
+    "node-schedule": "^2.1.1"
   }
 }

@@ -1,0 +1,26 @@
+name: daily
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: 执行每日流程
+        env:
+          MINEBBS_ACCOUNTS_JSON: ${{ secrets.MINEBBS_ACCOUNTS_JSON }}
+        run: |
+          if [ -z "$MINEBBS_ACCOUNTS_JSON" ]; then
+            echo "未设置 secret MINEBBS_ACCOUNTS_JSON，跳过。仓库 Settings → Secrets 里加上后再跑。"
+            exit 0
+          fi
+          node cli.js run
