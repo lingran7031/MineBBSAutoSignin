@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道具商店</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <%- include('partials/header', { title: '道具商店', message: message, error: error }) %>
+        <div class="card">
+            <form method="get" action="/shop">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="account">账户</label>
+                        <select id="account" name="account">
+                            <% accounts.forEach(function (entry) { %>
+                                <option value="<%= entry.name %>" <%= entry.name === account ? 'selected' : '' %>><%= entry.name %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">类型</label>
+                        <select id="type" name="type">
+                            <option value="">全部</option>
+                            <% types.forEach(function (entry) { %>
+                                <option value="<%= entry.id %>" <%= entry.id === type ? 'selected' : '' %>><%= entry.label %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">刷新</button>
+            </form>
+            <% if (notice) { %><p class="hint"><%= notice %></p><% } %>
+            <% if (!items.length) { %>
+                <p class="no-accounts">没有列到道具</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>ID</th><th>名称</th><th>价格</th><th>库存</th><th>已售</th><th>购买地址</th></tr></thead>
+                        <tbody>
+                            <% items.forEach(function (item) { %>
+                                <tr>
+                                    <td><%= item.itemId %></td>
+                                    <td><%= item.title %></td>
+                                    <td><%= item.priceLabel || '' %></td>
+                                    <td><%= item.stock || '' %></td>
+                                    <td><%= item.sold || '' %></td>
+                                    <td class="truncate"><%= item.purchasePath %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

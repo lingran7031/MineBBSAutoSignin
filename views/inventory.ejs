@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <%- include('partials/header', { title: '库存', message: message, error: error }) %>
+        <div class="card">
+            <form method="get" action="/inventory">
+                <div class="form-group">
+                    <label for="account">账户</label>
+                    <select id="account" name="account">
+                        <% accounts.forEach(function (entry) { %>
+                            <option value="<%= entry.name %>" <%= entry.name === account ? 'selected' : '' %>><%= entry.name %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">刷新</button>
+            </form>
+            <% if (notice) { %><p class="hint"><%= notice %></p><% } %>
+            <% if (!items.length) { %>
+                <p class="no-accounts">没有列到库存道具</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>库存 ID</th><th>道具 ID</th><th>名称</th><th>动作</th></tr></thead>
+                        <tbody>
+                            <% items.forEach(function (item) { %>
+                                <tr>
+                                    <td><%= item.purchaseId %></td>
+                                    <td><%= item.itemId || '' %></td>
+                                    <td><%= item.title %></td>
+                                    <td><%= Object.keys(item.actions || {}).join(', ') %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>
