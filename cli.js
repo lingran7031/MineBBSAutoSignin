@@ -26,7 +26,8 @@ MineBBS 签到 / 道具商店
   signin  只签到，不购买、不使用道具
   run     按配置执行每日流程：签到，然后执行 enabled 的购买和使用
   buy/use 默认只操作第一个账户；加 --all 才会对每个账户执行
-  账户来自 config/config.json，或环境变量 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON
+  账户来自 config/config.json，或环境变量 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON / MINEBBS_CONFIG_JSON
+  购买和使用只执行 enabled 且填了道具 ID、标题或库存 ID 的规则
   --json  额外把结果以 JSON 打到标准输出（日志仍会写文件）
 `.trim();
 
@@ -166,7 +167,7 @@ async function main(argv) {
     const [command, sub, ...rest] = positional;
     const config = loadConfig();
     if (config.accounts.length === 0 && !(command === 'shop' && sub === 'types')) {
-        console.error('没有可用账户。请配置 Cookie，或设置 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON');
+        console.error('没有可用账户，流程没有执行。请配置 Cookie，或设置 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON / MINEBBS_CONFIG_JSON');
         return 1;
     }
 

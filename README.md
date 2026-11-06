@@ -57,24 +57,36 @@ cp config.example.json config/config.json
 
 ### 环境变量
 
-有环境变量时，以环境变量里的账户为准，不再用文件里的账户。
+环境变量会盖过配置文件里的对应字段。账户只要来自环境变量，就不再用文件里的账户。购买、使用和限额也可以放在环境变量里，这样 GitHub Actions 不用提交 `config/config.json`。
 
 | 变量 | 作用 |
 | --- | --- |
-| `MINEBBS_COOKIES` | 单个账户的 Cookie |
+| `MINEBBS_COOKIES` | 单个账户的 Cookie。两个 JSON 都没有提供账户时才使用 |
 | `MINEBBS_CSRF_TOKEN` | 可选，一般留空 |
 | `MINEBBS_ACCOUNT_NAME` | 可选，默认 `env` |
-| `MINEBBS_ACCOUNTS_JSON` | 多个账户的 JSON 数组，适合 GitHub Actions |
+| `MINEBBS_ACCOUNTS_JSON` | 账户数组，或带 `accounts` / `purchases` / `uses` / `limits` 等字段的对象 |
+| `MINEBBS_CONFIG_JSON` | 一份完整或部分配置，字段与 `config.json` 相同 |
 | `MINEBBS_CONFIG_PATH` | 配置文件路径 |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 网页后台。不设置密码时，首次启动会在终端打印一次随机密码 |
 | `SESSION_SECRET` | 后台 session |
 | `PORT` | 网页端口，默认 3000 |
 
-`MINEBBS_ACCOUNTS_JSON` 示例：
+只签到时，`MINEBBS_ACCOUNTS_JSON` 仍然可以是数组：
 
 ```json
 [{"name":"主号","cookies":"xf_user=...; xf_session=...","csrfToken":""}]
 ```
+
+数组只替换账户，不会带上购买和使用。要在 Actions 里买东西、用道具，用下面的对象，或改用 `MINEBBS_CONFIG_JSON`。
+
+同时设置时的顺序：
+
+1. 先读 `config/config.json`（没有这份文件时用内置默认值，购买和使用都是空的）。
+2. `MINEBBS_CONFIG_JSON` 覆盖它里面出现的字段。
+3. `MINEBBS_ACCOUNTS_JSON` 再覆盖。数组只替换账户；对象则替换它自己带的字段。同一字段两边都有时，以 `MINEBBS_ACCOUNTS_JSON` 为准。
+4. `MINEBBS_COOKIES` 只在上面都没有给出账户时，当作单个账户。
+
+`limits` 和 `accountDelay` 是按字段合并的，没写到的上限会保留文件或默认值。`purchases` 和 `uses` 只要在环境变量里出现，就整表替换，不会和文件里的规则拼在一起。
 
 ### 限额
 
@@ -93,7 +105,7 @@ cp config.example.json config/config.json
 
 ### 购买和使用
 
-先用 `node cli.js shop list` 看道具 ID，用 `node cli.js inventory` 看库存 ID，再写入配置。`"enabled": false` 的规则不会在每日流程里执行。
+先用 `node cli.js shop list` 看道具 ID，用 `node cli.js inventory` 看库存 ID，再写入配置。`"enabled": false` 的规则不会在每日流程里执行。购买规则还要有道具 ID 或标题，使用规则还要有库存 ID、道具 ID 或标题；缺了这些字段的规则会被跳过，不会去请求商店或库存。空的 `purchases` / `uses` 同样只跳过那一步，签到照常做。
 
 ```json
 "purchases": [
@@ -146,7 +158,7 @@ node cli.js run
 
 `signin` 和 `run` 默认处理所有已配置账户。`shop`、`inventory`、`buy`、`use` 默认只处理第一个账户，加 `--all` 才处理全部，或用 `--account 名称` 指定一个。
 
-`run` = 签到 + 已启用的购买 + 已启用的使用。`signin` 只签到。
+`run` = 签到 + 已启用且填写完整的购买 + 已启用且填写完整的使用。`signin` 只签到。
 
 ## 网页
 
@@ -170,7 +182,58 @@ crontab -e
 0 8 * * * cd /path/to/MineBBSAutoSignin && /usr/bin/node cli.js run
 ```
 
-GitHub Actions 工作流是 `.github/workflows/daily.yml`，每天 UTC 0 点（北京时间 8 点）以及手动触发。在仓库 Settings → Secrets 添加 `MINEBBS_ACCOUNTS_JSON`。没配这个 secret 时工作流会跳过，不会失败。
+## GitHub Actions
+
+工作流是 `.github/workflows/daily.yml`。每天 UTC 0 点（北京时间 8 点）以及手动触发时执行 `node cli.js run`：签到，然后执行已启用且填写完整的购买和使用。
+
+Actions 上没有 `config/config.json`，所以规则要放在 Secret 里。仓库页面打开 Settings → Secrets and variables → Actions → New repository secret。Cookie 只放在这里，不要提交到仓库，也不要写进会被提交的文件。`csrfToken` 可以留空，每次打开页面都会读 `data-csrf`。
+
+推荐只添加 `MINEBBS_CONFIG_JSON`，把账户和规则放在一起：
+
+```json
+{
+  "accounts": [
+    {
+      "name": "主号",
+      "cookies": "xf_user=...; xf_session=...",
+      "csrfToken": ""
+    }
+  ],
+  "limits": {
+    "maxPurchasesPerRun": 5,
+    "maxUsesPerRun": 5,
+    "maxQuantityPerItem": 1,
+    "maxUnitPrice": 100,
+    "maxSpendPerRun": 500,
+    "allowHighQuantity": false
+  },
+  "purchases": [
+    {
+      "enabled": true,
+      "itemId": 12,
+      "title": "金粒顶贴卡",
+      "quantity": 1,
+      "maxPrice": 100
+    }
+  ],
+  "uses": [
+    {
+      "enabled": true,
+      "purchaseId": 55,
+      "title": "金粒顶贴卡",
+      "quantity": 1,
+      "action": "configure",
+      "threadUrl": "https://www.minebbs.com/threads/你的主题.1/"
+    }
+  ]
+}
+```
+
+`"enabled": true` 才会执行。上面这份如果把某条改成 `"enabled": false`，或者删掉 `itemId` / `title` / `purchaseId`，每日流程会跳过那一条，不会下单或使用。道具 ID 要用自己的 Cookie 跑 `node cli.js shop list` 和 `node cli.js inventory` 看，示例里的 `12` 和 `55` 不是固定值。
+
+同一份 JSON 也可以存成 `MINEBBS_ACCOUNTS_JSON`。两个 Secret 可以同时存在，合并规则见上面的环境变量说明。只想签到、不买不使用时，`MINEBBS_ACCOUNTS_JSON` 继续用账户数组即可。
+
+`MINEBBS_ACCOUNTS_JSON` 和 `MINEBBS_CONFIG_JSON` 都没填，或只有空白时，工作流会打印错误并以退出码 1 失败。Secret 里没有可用 Cookie 时，`node cli.js run` 同样失败。账户有效、但没有购买和使用规则时，签到成功即整次成功，购买和使用因为没有规则而跳过。
 
 ## 从旧版迁过来
 
