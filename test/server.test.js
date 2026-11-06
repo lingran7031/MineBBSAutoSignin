@@ -12,6 +12,7 @@ test('管理页可以登录并保存账号和限额', async () => {
         'MINEBBS_CONFIG_PATH',
         'MINEBBS_ADMIN_CONFIG_PATH',
         'MINEBBS_ACCOUNTS_JSON',
+        'MINEBBS_CONFIG_JSON',
         'MINEBBS_COOKIES',
         'ADMIN_PASSWORD',
         'ADMIN_USERNAME',
@@ -26,6 +27,7 @@ test('管理页可以登录并保存账号和限额', async () => {
     process.env.SESSION_SECRET = 'test-secret';
     process.env.BCRYPT_ROUNDS = '4';
     delete process.env.MINEBBS_ACCOUNTS_JSON;
+    delete process.env.MINEBBS_CONFIG_JSON;
     delete process.env.MINEBBS_COOKIES;
     fs.writeFileSync(process.env.MINEBBS_CONFIG_PATH, JSON.stringify({
         executeTime: '08:00:00',

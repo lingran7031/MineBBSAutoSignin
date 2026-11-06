@@ -1,6 +1,6 @@
 'use strict';
 
-const { computeDelayMs, loadConfig } = require('./config');
+const { computeDelayMs, isActionableRule, isPlaceholderSecret, loadConfig, ruleEnabled } = require('./config');
 const { createLogger } = require('./logger');
 const { createSession } = require('./session');
 const { signInAccount } = require('./signin');
@@ -12,9 +12,14 @@ async function runRoutine(options = {}) {
     const logger = options.logger || createLogger('routine', { logFile: options.logFile });
     const sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     const random = options.random || Math.random;
-    const accounts = filterAccounts(config.accounts, options.account);
+    const named = filterAccounts(config.accounts || [], options.account);
+    const accounts = named.filter((account) => account && !isPlaceholderSecret(account.cookies));
+    const skippedAccounts = named.length - accounts.length;
+    if (skippedAccounts > 0) {
+        logger.warn(`跳过 ${skippedAccounts} 个缺少 Cookie 的账户`);
+    }
     if (accounts.length === 0) {
-        const message = '没有可用账户。请在 config/config.json 填写 Cookie，或设置环境变量 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON';
+        const message = '没有可用账户，流程没有执行。请在 config/config.json 填写 Cookie，或设置 MINEBBS_COOKIES / MINEBBS_ACCOUNTS_JSON / MINEBBS_CONFIG_JSON';
         logger.error(message);
         return { ok: false, message, accounts: [] };
     }
@@ -37,7 +42,12 @@ async function runRoutine(options = {}) {
         let useCount = 0;
         const runShop = !options.only || options.only === 'all' || options.only === 'shop';
         if (signin.ok && runShop && options.only !== 'signin') {
-            for (const rule of config.purchases.filter((entry) => entry.enabled)) {
+            warnIncomplete(accountLogger, config.purchases, 'purchase');
+            const purchaseRules = dailyRules(config.purchases, 'purchase');
+            if (purchaseRules.length === 0) {
+                accountLogger.info('没有已填写并启用的购买规则，跳过购买');
+            }
+            for (const rule of purchaseRules) {
                 const result = await buyItem(session, rule, config.limits, {
                     dryRun: options.dryRun,
                     spent,
@@ -53,7 +63,12 @@ async function runRoutine(options = {}) {
                     break;
                 }
             }
-            for (const rule of config.uses.filter((entry) => entry.enabled)) {
+            warnIncomplete(accountLogger, config.uses, 'use');
+            const useRules = dailyRules(config.uses, 'use');
+            if (useRules.length === 0) {
+                accountLogger.info('没有已填写并启用的使用规则，跳过使用');
+            }
+            for (const rule of useRules) {
                 const result = await useItem(session, rule, config.limits, {
                     dryRun: options.dryRun,
                     useCount,
@@ -81,10 +96,25 @@ async function runRoutine(options = {}) {
 }
 
 function filterAccounts(accounts, name) {
+    const list = Array.isArray(accounts) ? accounts : [];
     if (!name) {
-        return accounts;
+        return list;
     }
-    return accounts.filter((account) => account.name === name);
+    return list.filter((account) => account && account.name === name);
+}
+
+function dailyRules(list, kind) {
+    return (Array.isArray(list) ? list : []).filter((entry) => isActionableRule(entry, kind));
+}
+
+function warnIncomplete(logger, list, kind) {
+    const incomplete = (Array.isArray(list) ? list : [])
+        .filter((entry) => ruleEnabled(entry) && !isActionableRule(entry, kind));
+    if (incomplete.length === 0) {
+        return;
+    }
+    const need = kind === 'purchase' ? '道具 ID 或标题' : '库存 ID、道具 ID 或标题';
+    logger.warn(`跳过 ${incomplete.length} 条未填完整的${kind === 'purchase' ? '购买' : '使用'}规则（需要${need}）`);
 }
 
 function accountOk(result) {

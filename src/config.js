@@ -74,21 +74,140 @@ function normalizeAccount(account, index) {
     };
 }
 
-function accountsFromEnv() {
-    if (process.env.MINEBBS_ACCOUNTS_JSON) {
-        const parsed = JSON.parse(process.env.MINEBBS_ACCOUNTS_JSON);
-        const list = Array.isArray(parsed) ? parsed : parsed.accounts;
-        if (!Array.isArray(list)) {
-            throw new Error('MINEBBS_ACCOUNTS_JSON 必须是账户数组，或 { "accounts": [] }');
-        }
-        return list.map(normalizeAccount);
+const ENV_CONFIG_FIELDS = [
+    'baseUrl',
+    'shopPrefix',
+    'creditsClockPath',
+    'executeTime',
+    'accountDelay',
+    'currencyIds',
+    'limits',
+    'purchases',
+    'uses',
+    'accounts',
+];
+
+function envText(name) {
+    const value = process.env[name];
+    return value == null ? '' : String(value).trim();
+}
+
+function parseEnvJson(name) {
+    const text = envText(name);
+    if (!text) {
+        return null;
     }
-    if (process.env.MINEBBS_COOKIES) {
-        return [normalizeAccount({
-            name: process.env.MINEBBS_ACCOUNT_NAME || 'env',
-            cookies: process.env.MINEBBS_COOKIES,
-            csrfToken: process.env.MINEBBS_CSRF_TOKEN || '',
-        }, 0)];
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        throw new Error(`${name} 不是合法 JSON`);
+    }
+}
+
+function assertList(value, label, field) {
+    if (value != null && !Array.isArray(value)) {
+        throw new Error(`${label} 的 ${field} 必须是数组`);
+    }
+}
+
+function assertObject(value, label, field) {
+    if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`${label} 的 ${field} 必须是对象`);
+    }
+}
+
+function takeEnvOverlay(source, label) {
+    if (source == null || typeof source !== 'object' || Array.isArray(source)) {
+        throw new Error(`${label} 必须是 JSON 对象`);
+    }
+    const picked = {};
+    for (const field of ENV_CONFIG_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(source, field)) {
+            picked[field] = source[field];
+        }
+    }
+    if (Object.keys(picked).length === 0) {
+        throw new Error(`${label} 没有可识别的配置字段（accounts、purchases、uses、limits 等）`);
+    }
+    assertList(picked.accounts, label, 'accounts');
+    assertList(picked.purchases, label, 'purchases');
+    assertList(picked.uses, label, 'uses');
+    assertList(picked.currencyIds, label, 'currencyIds');
+    if (Object.prototype.hasOwnProperty.call(picked, 'limits')) {
+        assertObject(picked.limits, label, 'limits');
+    }
+    if (Object.prototype.hasOwnProperty.call(picked, 'accountDelay')) {
+        assertObject(picked.accountDelay, label, 'accountDelay');
+    }
+    return picked;
+}
+
+function mergeEnvLayer(base, layer) {
+    const next = { ...base };
+    const defaults = defaultFileConfig();
+    for (const field of ENV_CONFIG_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(layer, field)) {
+            continue;
+        }
+        if (field === 'limits') {
+            next.limits = { ...(base.limits || defaults.limits), ...layer.limits };
+            continue;
+        }
+        if (field === 'accountDelay') {
+            next.accountDelay = { ...(base.accountDelay || defaults.accountDelay), ...layer.accountDelay };
+            continue;
+        }
+        next[field] = layer[field];
+    }
+    return next;
+}
+
+// 覆盖顺序：配置文件 < MINEBBS_CONFIG_JSON < MINEBBS_ACCOUNTS_JSON。
+// MINEBBS_ACCOUNTS_JSON 为数组时只替换账户；为对象时覆盖它带上的字段。
+function envConfigLayers() {
+    const layers = [];
+    let accountsProvided = false;
+
+    const configJson = parseEnvJson('MINEBBS_CONFIG_JSON');
+    if (configJson !== null) {
+        const overlay = takeEnvOverlay(configJson, 'MINEBBS_CONFIG_JSON');
+        layers.push(overlay);
+        accountsProvided = Object.prototype.hasOwnProperty.call(overlay, 'accounts');
+    }
+
+    const accountsJson = parseEnvJson('MINEBBS_ACCOUNTS_JSON');
+    if (accountsJson !== null) {
+        if (Array.isArray(accountsJson)) {
+            layers.push({ accounts: accountsJson });
+            accountsProvided = true;
+        } else {
+            const overlay = takeEnvOverlay(accountsJson, 'MINEBBS_ACCOUNTS_JSON');
+            layers.push(overlay);
+            if (Object.prototype.hasOwnProperty.call(overlay, 'accounts')) {
+                accountsProvided = true;
+            }
+        }
+    }
+
+    if (!accountsProvided && envText('MINEBBS_COOKIES')) {
+        layers.push({
+            accounts: [{
+                name: process.env.MINEBBS_ACCOUNT_NAME || 'env',
+                cookies: process.env.MINEBBS_COOKIES,
+                csrfToken: process.env.MINEBBS_CSRF_TOKEN || '',
+            }],
+        });
+    }
+
+    return layers;
+}
+
+function accountsFromEnv() {
+    const layers = envConfigLayers();
+    for (let index = layers.length - 1; index >= 0; index -= 1) {
+        if (Object.prototype.hasOwnProperty.call(layers[index], 'accounts')) {
+            return layers[index].accounts.map(normalizeAccount);
+        }
     }
     return null;
 }
@@ -117,13 +236,13 @@ function normalizeRuleList(list, kind) {
     if (!Array.isArray(list)) {
         return [];
     }
-    return list.map((rule, index) => normalizeRule(rule, kind, index));
+    return list.map((rule) => normalizeRule(rule, kind));
 }
 
-function normalizeRule(rule, kind, index) {
+function normalizeRule(rule, kind) {
     const source = rule || {};
-    const normalized = {
-        enabled: source.enabled === true || source.enabled === '1' || source.enabled === 1,
+    return {
+        enabled: ruleEnabled(source),
         itemId: source.itemId == null || source.itemId === '' ? null : Number(source.itemId),
         title: source.title ? String(source.title) : '',
         quantity: Math.max(1, Number(source.quantity || 1)),
@@ -134,10 +253,32 @@ function normalizeRule(rule, kind, index) {
         fields: source.fields && typeof source.fields === 'object' ? { ...source.fields } : {},
         gift: source.gift || null,
     };
-    if (!normalized.title && normalized.itemId == null && normalized.purchaseId == null) {
-        normalized.title = `${kind}-${index + 1}`;
+}
+
+function ruleEnabled(rule) {
+    return !!rule && (rule.enabled === true || rule.enabled === 1 || rule.enabled === '1');
+}
+
+function hasPositiveId(value) {
+    if (value == null || value === '') {
+        return false;
     }
-    return normalized;
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0;
+}
+
+function hasTitle(rule) {
+    return Boolean(rule && String(rule.title || '').trim());
+}
+
+function isActionableRule(rule, kind) {
+    if (!ruleEnabled(rule)) {
+        return false;
+    }
+    if (hasPositiveId(rule.itemId) || hasTitle(rule)) {
+        return true;
+    }
+    return kind !== 'purchase' && hasPositiveId(rule.purchaseId);
 }
 
 function normalize(config) {
@@ -179,12 +320,10 @@ function loadConfig(options = {}) {
         writeFileConfig(fileConfig, file);
     }
     fileConfig = fileConfig || defaultFileConfig();
-    const envAccounts = accountsFromEnv();
-    if (envAccounts) {
-        fileConfig = { ...fileConfig, accounts: envAccounts };
-    }
-    const normalized = normalize(fileConfig);
-    normalized._source = envAccounts ? 'env' : 'file';
+    const layers = envConfigLayers();
+    const merged = layers.reduce((config, layer) => mergeEnvLayer(config, layer), fileConfig);
+    const normalized = normalize(merged);
+    normalized._source = layers.length > 0 ? 'env' : 'file';
     normalized._file = file;
     return normalized;
 }
@@ -217,6 +356,8 @@ module.exports = {
     loadConfig,
     normalize,
     normalizeRule,
+    ruleEnabled,
+    isActionableRule,
     computeDelayMs,
     parseExecuteTime,
     accountsFromEnv,

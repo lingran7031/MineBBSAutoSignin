@@ -18,9 +18,12 @@ jobs:
       - name: 执行每日流程
         env:
           MINEBBS_ACCOUNTS_JSON: ${{ secrets.MINEBBS_ACCOUNTS_JSON }}
+          MINEBBS_CONFIG_JSON: ${{ secrets.MINEBBS_CONFIG_JSON }}
         run: |
-          if [ -z "$MINEBBS_ACCOUNTS_JSON" ]; then
-            echo "未设置 secret MINEBBS_ACCOUNTS_JSON，跳过。仓库 Settings → Secrets 里加上后再跑。"
-            exit 0
+          accounts_json="${MINEBBS_ACCOUNTS_JSON//[[:space:]]/}"
+          config_json="${MINEBBS_CONFIG_JSON//[[:space:]]/}"
+          if [ -z "$accounts_json" ] && [ -z "$config_json" ]; then
+            echo "错误：未设置 secret MINEBBS_ACCOUNTS_JSON 或 MINEBBS_CONFIG_JSON，没有账户可执行。请在仓库 Settings → Secrets and variables → Actions 中至少添加一个包含账户 Cookie 的 JSON。"
+            exit 1
           fi
           node cli.js run
